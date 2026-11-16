@@ -347,7 +347,7 @@ if __name__ == '__main__':
 
     # Init.
     print_info()
-    from PyQt5.QtCore import Qt as _Qt
+    from PyQt5.QtCore import Qt as _Qt, QObject as _QObject, QEvent as _QEvent
     QApplication.setAttribute(_Qt.AA_DontUseNativeDialogs)
     if sys.platform == 'win32':
         import ctypes as _ctypes
@@ -431,6 +431,24 @@ if __name__ == '__main__':
     _theme_watcher.fileChanged.connect(lambda _p: _QTimer.singleShot(150, _apply_theme))
     _apply_theme()
 
+    if sys.platform == 'win32':
+        import ctypes
+
+        def _dark_title(w):
+            on = ctypes.c_int(1)
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                ctypes.c_void_p(int(w.winId())), 20, ctypes.byref(on), ctypes.sizeof(on))
+
+        class _DarkTitles(_QObject):
+            def eventFilter(self, obj, ev):
+                if ev.type() == _QEvent.Show and getattr(obj, 'isWindow', None) \
+                        and obj.isWindow() and not obj.property('_dark_title'):
+                    obj.setProperty('_dark_title', True)
+                    _dark_title(obj)
+                return False
+
+        _dark_filter = _DarkTitles()
+        app.installEventFilter(_dark_filter)
     options, filenames = parse_cmd_options()
     init(options, app)
 
@@ -449,6 +467,10 @@ if __name__ == '__main__':
     win = MainWin()
     splash.close()
     _apply_theme()
+    if sys.platform == 'win32':
+        _dark_title(win)
+        win.resize(win.width() + 1, win.height())
+        win.resize(win.width() - 1, win.height())
     win.setVisible(True)
     app.processEvents()
 
