@@ -344,6 +344,9 @@ if __name__ == '__main__':
 
     # Init.
     print_info()
+    if sys.platform == 'win32':
+        import ctypes as _ctypes
+        _ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('puddletag.puddletag')
     app = QApplication(sys.argv)
     options, filenames = parse_cmd_options()
     init(options, app)
