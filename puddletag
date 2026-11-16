@@ -467,10 +467,76 @@ if __name__ == '__main__':
     win = MainWin()
     splash.close()
     _apply_theme()
+    print('window icon null: %s sizes: %s' % (app.windowIcon().isNull(),
+          [s.width() for s in app.windowIcon().availableSizes()]), flush=True)
     if sys.platform == 'win32':
         _dark_title(win)
         win.resize(win.width() + 1, win.height())
         win.resize(win.width() - 1, win.height())
+    if os.environ.get('PUDDLE_THEMETEST'):
+        from PyQt5.QtCore import QTimer
+        from puddlestuff.helperwin import ExTags as _ExTags
+
+        def _open_extags():
+            from PyQt5.QtWidgets import QAbstractItemView as _V
+            _files = [v.model().taginfo for v in win.findChildren(_V)
+                      if hasattr(v.model(), 'taginfo')][0]
+            win._test_extags = _ExTags(win, 0, _files)
+            win._test_extags.show()
+            print('extags open: add=%s' % win._test_extags._colors[1].color().name(), flush=True)
+        QTimer.singleShot(4000, _open_extags)
+    if os.environ.get('PUDDLE_GRAB'):
+        from PyQt5.QtCore import QTimer
+        def _grab():
+            from PyQt5.QtWidgets import QAbstractItemView
+            t = win.findChildren(QAbstractItemView)
+            with open(os.environ['PUDDLE_GRAB'] + '.txt', 'w') as fh:
+                for v in t:
+                    pal = v.palette()
+                    fh.write('%s active=%s inactive=%s hitext=%s focus=%s\n' % (
+                        type(v).__name__,
+                        pal.color(pal.Active, pal.Highlight).name(),
+                        pal.color(pal.Inactive, pal.Highlight).name(),
+                        pal.color(pal.Inactive, pal.HighlightedText).name(),
+                        v.hasFocus()))
+            win.grab().save(os.environ['PUDDLE_GRAB'] + '.png')
+            from PyQt5.QtWidgets import QFileDialog
+            from puddlestuff.helperwin import ExTags
+            dlgs = [QFileDialog(win, 'test'), ExTags(win, 0, win.findChild(QAbstractItemView, None).model().taginfo if hasattr(win.findChild(QAbstractItemView, None).model(), 'taginfo') else None)]
+            from puddlestuff.puddlesettings import SettingsDialog
+            from puddlestuff.puddletag import status as _status
+            from puddlestuff.puddleobjects import PuddleDock
+            dlgs.append(SettingsDialog(list(PuddleDock._controls.values()), win, _status))
+            for dl in dlgs:
+                dl.show()
+            _menu = win.menuBar().actions()[0].menu()
+            _menu.popup(win.mapToGlobal(win.rect().center()))
+            dlgs.append(_menu)
+            _m = win.findChild(QAbstractItemView, None).model()
+            with open(os.environ['PUDDLE_GRAB'] + '_colors.txt', 'w') as fh:
+                for _v in win.findChildren(QAbstractItemView):
+                    _mm = _v.model()
+                    if hasattr(_mm, 'previewBackground'):
+                        fh.write('previewBackground=%s selectionBackground=%s permaColor=%s\n' % (
+                            _mm.previewBackground.name(), _mm.selectionBackground.name(), _mm.permaColor.name()))
+
+            def _after():
+                import ctypes
+                with open(os.environ['PUDDLE_GRAB'] + '_dlg.txt', 'w') as fh:
+                    for i, dl in enumerate(dlgs):
+                        val = ctypes.c_int(0)
+                        r = ctypes.windll.dwmapi.DwmGetWindowAttribute(
+                            ctypes.c_void_p(int(dl.winId())), 20, ctypes.byref(val), ctypes.sizeof(val))
+                        fh.write('%s hr=%s dark=%s\n' % (type(dl).__name__, r, val.value))
+                        dl.grab().save('%s_dlg%d.png' % (os.environ['PUDDLE_GRAB'], i))
+                    val = ctypes.c_int(0)
+                    ctypes.windll.dwmapi.DwmGetWindowAttribute(
+                        ctypes.c_void_p(int(win.winId())), 20, ctypes.byref(val), ctypes.sizeof(val))
+                    fh.write('MainWin dark=%s\n' % val.value)
+                for dl in dlgs:
+                    dl.close()
+            QTimer.singleShot(1500, _after)
+        QTimer.singleShot(6000, _grab)
     win.setVisible(True)
     app.processEvents()
 
