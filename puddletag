@@ -55,7 +55,7 @@ def _migrate_action_shortcut_filenames():
     with open(filename, 'r') as fo:
         data = json.loads(fo.read())
 
-    old_dir = os.path.join(os.getenv('HOME'), '.puddletag', 'actions')
+    old_dir = os.path.join(os.path.expanduser('~'), '.puddletag', 'actions')
     for key, shortcut in data.items():
         shortcut['filenames'] = [z.replace(old_dir, ACTIONDIR) for z in shortcut['filenames']]
 
@@ -69,7 +69,7 @@ def migrate_settings():
         if not os.path.exists(dirpath):
             os.makedirs(dirpath)
 
-    old_dir = os.path.join(os.getenv('HOME'), '.puddletag')
+    old_dir = os.path.join(os.path.expanduser('~'), '.puddletag')
     if (os.path.exists(old_dir)):
         dirnames = [
             'plugins', 'actions', 'masstagging', 'mp3tag_sources', 'translations']
@@ -372,8 +372,7 @@ if __name__ == '__main__':
         'table': {'selection': '#2d4a6a', 'preview': '#285028', 'highlight': '#1e5a1e'},
         'extendedtags': {'add': '#6e6400', 'edit': '#1e5a1e', 'remove': '#781e1e'},
     }
-    _theme_path = os.path.join(os.environ.get('HOME') or os.path.expanduser('~'),
-                               '.config', 'puddletag', 'theme.json')
+    _theme_path = os.path.join(puddlestuff.constants.CONFIGDIR, 'theme.json')
     if not os.path.exists(_theme_path):
         os.makedirs(os.path.dirname(_theme_path), exist_ok=True)
         with open(_theme_path, 'w', encoding='utf-8') as _fh:

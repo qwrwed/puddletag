@@ -29,9 +29,9 @@ UNCHANGED = 0
 def _theme_status_colours():
     """Extended Tags add/edit/remove colours from theme.json."""
     import json
+    from .constants import CONFIGDIR
     colours = {'add': '#6e6400', 'edit': '#1e5a1e', 'remove': '#781e1e'}
-    path = os.path.join(os.environ.get('HOME') or os.path.expanduser('~'),
-                        '.config', 'puddletag', 'theme.json')
+    path = os.path.join(CONFIGDIR, 'theme.json')
     try:
         with open(path, encoding='utf-8') as fh:
             colours.update(json.load(fh).get('extendedtags', {}))
