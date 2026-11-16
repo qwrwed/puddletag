@@ -286,14 +286,17 @@ def print_info():
 
 
 def splashscreen():
-    from PyQt5.QtGui import QFont, QPainter, QPixmap
+    from PyQt5.QtGui import QColor, QFont, QPainter, QPixmap
     from PyQt5.QtWidgets import QSplashScreen
     from puddlestuff import version_string
 
-    pixmap = QPixmap('icons:puddlelogo.png')
+    _img = QPixmap('icons:puddlelogo.png').toImage()
+    _img.invertPixels()
+    pixmap = QPixmap.fromImage(_img)
 
     # Add version
     painter = QPainter(pixmap)
+    painter.setPen(QColor('#e0e0e0'))
     font = QFont()
     font.setPointSize(14)
     font.setBold(True)
@@ -344,10 +347,90 @@ if __name__ == '__main__':
 
     # Init.
     print_info()
+    from PyQt5.QtCore import Qt as _Qt
+    QApplication.setAttribute(_Qt.AA_DontUseNativeDialogs)
     if sys.platform == 'win32':
         import ctypes as _ctypes
         _ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('puddletag.puddletag')
     app = QApplication(sys.argv)
+    import json as _json
+    from PyQt5.QtCore import QFileSystemWatcher as _Watcher, QTimer as _QTimer
+    from PyQt5.QtGui import QPalette, QColor
+    app.setStyle('Fusion')
+
+    _theme_default = {
+        'palette': {
+            'Window': '#202020', 'WindowText': '#e0e0e0', 'Base': '#141414',
+            'AlternateBase': '#1c1c1c', 'Text': '#e0e0e0', 'Button': '#2a2a2a',
+            'ButtonText': '#e0e0e0', 'Highlight': '#2d5a88', 'HighlightedText': '#ffffff',
+            'ToolTipBase': '#2a2a2a', 'ToolTipText': '#e0e0e0', 'Mid': '#2d4a6a',
+            'Light': '#3a3a3a', 'Midlight': '#303030', 'Dark': '#101010',
+            'Shadow': '#000000', 'BrightText': '#ff6060', 'Link': '#6aa8e8',
+            'LinkVisited': '#a88ae8', 'PlaceholderText': '#808080'},
+        'disabled': {'WindowText': '#707070', 'Text': '#707070',
+                     'ButtonText': '#707070', 'Highlight': '#3a3a3a'},
+        'table': {'selection': '#2d4a6a', 'preview': '#285028', 'highlight': '#1e5a1e'},
+        'extendedtags': {'add': '#6e6400', 'edit': '#1e5a1e', 'remove': '#781e1e'},
+    }
+    _theme_path = os.path.join(os.environ.get('HOME') or os.path.expanduser('~'),
+                               '.config', 'puddletag', 'theme.json')
+    if not os.path.exists(_theme_path):
+        os.makedirs(os.path.dirname(_theme_path), exist_ok=True)
+        with open(_theme_path, 'w', encoding='utf-8') as _fh:
+            _json.dump(_theme_default, _fh, indent=2)
+
+    def _apply_theme():
+        try:
+            with open(_theme_path, encoding='utf-8') as fh:
+                theme = _json.load(fh)
+        except (OSError, ValueError) as e:
+            print('theme.json not applied:', e)
+            return
+        pal = QPalette()
+        for role, colour in theme.get('palette', {}).items():
+            pal.setColor(getattr(QPalette, role), QColor(colour))
+        for role, colour in theme.get('disabled', {}).items():
+            pal.setColor(QPalette.Disabled, getattr(QPalette, role), QColor(colour))
+        app.setPalette(pal)
+        table = theme.get('table', {})
+        tagmodel = sys.modules.get('puddlestuff.tagmodel')
+        if tagmodel is not None and 'highlight' in table:
+            tagmodel.HIGHLIGHTCOLOR = QColor(table['highlight'])
+        for w in app.allWidgets():
+            m = w.model() if hasattr(w, 'model') and callable(w.model) else None
+            if m is not None and hasattr(m, 'previewBackground'):
+                if 'selection' in table:
+                    m.selectionBackground = QColor(table['selection'])
+                if 'preview' in table:
+                    m.previewBackground = QColor(table['preview'])
+                if 'highlight' in table:
+                    old = m.permaColor
+                    m.permaColor = QColor(table['highlight'])
+                    for t in m.taginfo:
+                        if getattr(t, 'color', None) is not None and QColor(t.color) == QColor(old):
+                            t.color = m.permaColor
+                w.viewport().update()
+            if type(w).__name__ == 'ExTags' and hasattr(w, 'loadSettings'):
+                w.loadSettings()
+        if _theme_path not in _theme_watcher.files():
+            _theme_watcher.addPath(_theme_path)
+        info = ['Base=%s' % pal.color(QPalette.Base).name()]
+        if tagmodel is not None:
+            info.append('HIGHLIGHTCOLOR=%s' % QColor(tagmodel.HIGHLIGHTCOLOR).name())
+        for w in app.allWidgets():
+            if hasattr(w, 'permaColor') is False and hasattr(w, 'model') and callable(w.model) \
+                    and hasattr(w.model(), 'permaColor'):
+                info.append('permaColor=%s' % w.model().permaColor.name())
+                break
+        for w in app.allWidgets():
+            if type(w).__name__ == 'ExTags':
+                info.append('ExTags.add=%s' % w._colors[1].color().name())
+        print('theme applied: ' + ' '.join(info), flush=True)
+
+    _theme_watcher = _Watcher()
+    _theme_watcher.fileChanged.connect(lambda _p: _QTimer.singleShot(150, _apply_theme))
+    _apply_theme()
+
     options, filenames = parse_cmd_options()
     init(options, app)
 
@@ -365,6 +448,7 @@ if __name__ == '__main__':
     app.processEvents()
     win = MainWin()
     splash.close()
+    _apply_theme()
     win.setVisible(True)
     app.processEvents()
 

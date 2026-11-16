@@ -37,7 +37,7 @@ the_break = False
 status = {}
 
 LIBRARY = '__library'
-HIGHLIGHTCOLOR = Qt.GlobalColor.green
+HIGHLIGHTCOLOR = QColor.fromRgb(30, 90, 30)
 SHIFT_RETURN = 2
 RETURN_ONLY = 1
 
@@ -516,7 +516,7 @@ class TagModel(QAbstractTableModel):
         self._previewMode = False
         self._prevhighlight = []
         self._permah = []
-        self.permaColor = QColor(Qt.GlobalColor.green)
+        self.permaColor = QColor.fromRgb(30, 90, 30)
         self._colored = []
         audioinfo.Tag = _Tag(self)
         audioinfo.model_tag = partial(model_tag, self)
@@ -1968,7 +1968,7 @@ class TagTable(QTableView):
             self.verticalHeader().setDefaultSectionSize(rowsize)
 
         cparser = PuddleConfig()
-        preview_color = cparser.get('table', 'preview_color', [192, 255, 192], True)
+        preview_color = cparser.get('table', 'preview_color', [40, 80, 40], True)
         default = QPalette().color(QPalette.ColorRole.Mid).getRgb()[:-1]
         selection_color = cparser.get('table', 'selected_color', default, True)
 

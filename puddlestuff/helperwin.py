@@ -24,6 +24,20 @@ from .util import to_string
 
 ADD, EDIT, REMOVE = (1, 2, 3)
 UNCHANGED = 0
+
+
+def _theme_status_colours():
+    """Extended Tags add/edit/remove colours from theme.json."""
+    import json
+    colours = {'add': '#6e6400', 'edit': '#1e5a1e', 'remove': '#781e1e'}
+    path = os.path.join(os.environ.get('HOME') or os.path.expanduser('~'),
+                        '.config', 'puddletag', 'theme.json')
+    try:
+        with open(path, encoding='utf-8') as fh:
+            colours.update(json.load(fh).get('extendedtags', {}))
+    except (OSError, ValueError):
+        pass
+    return QColor(colours['add']), QColor(colours['edit']), QColor(colours['remove'])
 BOLD = 1
 ITALICS = 2
 TAG_DISP = "<b>%s: </b> %s, "
@@ -610,9 +624,7 @@ class ExTags(QDialog):
         self.get_fieldlist = []
         self.previewMode = preview_mode
 
-        add = QColor.fromRgb(255, 255, 0)
-        edit = QColor.fromRgb(0, 255, 0)
-        remove = QColor.fromRgb(255, 0, 0)
+        add, edit, remove = _theme_status_colours()
         self._colors = {ADD: QBrush(add),
                         EDIT: QBrush(edit), REMOVE: QBrush(remove)}
 
@@ -830,9 +842,7 @@ class ExTags(QDialog):
         cparser = PuddleConfig()
         self.get_fieldlist = gettaglist()
         get = lambda k, v: cparser.get('extendedtags', k, v, True)
-        add = QColor.fromRgb(*get('add', [255, 255, 0]))
-        edit = QColor.fromRgb(*get('edit', [0, 255, 0]))
-        remove = QColor.fromRgb(*get('remove', [255, 0, 0]))
+        add, edit, remove = _theme_status_colours()
 
         self._colors = {ADD: QBrush(add),
                         EDIT: QBrush(edit), REMOVE: QBrush(remove)}

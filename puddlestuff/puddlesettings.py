@@ -553,7 +553,7 @@ class ColorEdit(QWidget):
         get_color = lambda key, default: QColor.fromRgb(
             *cparser.get('table', key, default, True))
 
-        preview = get_color('preview_color', [192, 255, 192])
+        preview = get_color('preview_color', [40, 80, 40])
         selection_default = QPalette().color(QPalette.ColorRole.Mid).getRgb()[:-1]
 
         selection = get_color('selected_color', selection_default)
