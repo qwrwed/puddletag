@@ -451,7 +451,13 @@ class Tag(util.MockTag):
             try:
                 newtag[REVTAGS[tag]] = value
             except KeyError:
-                newtag[self.__freeform[tag]] = encode(self.__tags[tag])
+                key = self.__freeform[tag]
+                # Only '----' freeform atoms take bytes; other atoms puddletag has no name for,
+                # such as a description, are text atoms that mutagen writes from str.
+                if key.startswith('----'):
+                    newtag[key] = encode(self.__tags[tag])
+                else:
+                    newtag[key] = self.__tags[tag]
 
         if self.images:
             newtag['covr'] = [_f for _f in map(pic_to_bin, self.images) if _f]
