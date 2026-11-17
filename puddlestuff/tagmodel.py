@@ -1712,8 +1712,30 @@ class TagTable(QTableView):
         event.accept()
         event.acceptProposedAction()
 
+    def _cellDropTarget(self, event):
+        """The index a cell dragged within this table would be copied to, or None.
+        The target is the dropped-on row, in the dragged cell's column."""
+        cell = getattr(event.mimeData(), 'dragCell', None)
+        if event.source() != self or not cell:
+            return None
+        row = self.rowAt(event.pos().y())
+        if row == -1 or row == cell[0]:
+            return None
+        return self.model().index(row, cell[1])
+
     def dropEvent(self, event):
         mime = event.mimeData()
+        target = self._cellDropTarget(event)
+        if target is not None:
+            # Copy the dragged cell's value into the same column of the dropped-on row.
+            model = self.model()
+            row, column = mime.dragCell
+            value = model.data(model.index(row, column), Qt.ItemDataRole.EditRole) or ''
+            # TagModel's own setData writes to this one row; the table's wrapper of
+            # model.setData would write to every selected row instead.
+            TagModel.setData(model, target, value)
+            event.accept()
+            return
         if event.source() == self and \
                 hasattr(mime, 'draggedRows') and mime.draggedRows:
 
@@ -1748,6 +1770,8 @@ class TagTable(QTableView):
         if event.source() == self:
             if hasattr(mime, 'draggedRows') and mime.draggedRows:
                 event.accept()
+            elif self._cellDropTarget(event) is not None:
+                event.accept()
             else:
                 event.ignore()
             return
@@ -1780,8 +1804,12 @@ class TagTable(QTableView):
         mimeData.setUrls(urls)
         if event.modifiers() == Qt.KeyboardModifier.MetaModifier:
             mimeData.draggedRows = self.selectedRows[::]
+            mimeData.dragCell = None
         else:
             mimeData.draggedRows = None
+            # The pressed cell, so dropping it on another row copies its value there.
+            pressed = self.indexAt(pnt)
+            mimeData.dragCell = (pressed.row(), pressed.column()) if pressed.isValid() else None
 
         drag = QDrag(self)
         drag.setMimeData(mimeData)
