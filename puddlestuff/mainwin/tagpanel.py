@@ -3,9 +3,9 @@ import sip
 import sys
 
 from PyQt5.QtCore import QEvent, QThread, Qt, pyqtRemoveInputHook, pyqtSignal
-from PyQt5.QtGui import QBrush
+from PyQt5.QtGui import QBrush, QFontMetrics
 from PyQt5.QtWidgets import QApplication, QComboBox, QCompleter, QDialog, QGroupBox, QHBoxLayout, \
-    QLabel, QLineEdit, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+    QLabel, QLineEdit, QPlainTextEdit, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from ..audioinfo import INFOTAGS
 from ..puddleobjects import ListButtons, PuddleConfig
@@ -85,6 +85,55 @@ class Combo(QComboBox):
         return super(Combo, self).focusOutEvent(event)
 
 
+# Fields whose values span lines get a multi-line box instead of a combo.
+MULTILINE_FIELDS = {'description', 'lyrics'}
+
+
+class TextBox(QPlainTextEdit):
+    """A multi-line box offering the parts of QComboBox's interface that FrameCombo uses.
+
+    Its items are the values a combo would list (<keep>, <blank>, then each value); it shows
+    one of them as editable text. A value read with Windows line breaks is given back with them.
+    """
+    currentIndexChanged = pyqtSignal(int)
+
+    def __init__(self, parent=None, lines=5):
+        super(TextBox, self).__init__(parent)
+        self._items = []
+        self._crlf = False
+        self.setTabChangesFocus(True)
+        self.setFixedHeight(QFontMetrics(self.font()).lineSpacing() * lines + 12)
+
+    def clear(self):
+        self._items = []
+        self._crlf = False
+        super(TextBox, self).clear()
+
+    def addItems(self, items):
+        self._items.extend(items)
+
+    def count(self):
+        return len(self._items)
+
+    def itemText(self, index):
+        return self._items[index] if 0 <= index < len(self._items) else ''
+
+    def findText(self, text, flags=None):
+        return self._items.index(text) if text in self._items else -1
+
+    def setCurrentIndex(self, index):
+        self.setEditText(self.itemText(index))
+        self.currentIndexChanged.emit(index)
+
+    def setEditText(self, text):
+        self._crlf = '\r\n' in text
+        self.setPlainText(text)
+
+    def currentText(self):
+        text = self.toPlainText()
+        return text.replace('\n', '\r\n') if self._crlf else text
+
+
 class Thread(QThread):
     update = pyqtSignal(object, name='update')
 
@@ -131,6 +180,8 @@ class FrameCombo(QGroupBox):
         self.__disconnectIndexChanged
         self.__indexFuncs = []
         for field, combo in self.combos.items():
+            if isinstance(combo, TextBox):
+                continue
             edit = QLineEdit()
             combo.setLineEdit(edit)
             completer = combo.completer()
@@ -146,6 +197,9 @@ class FrameCombo(QGroupBox):
         self.__indexFuncs = []
         for field, combo in self.combos.items():
             func = partial(self._emitChange, field)
+            if isinstance(combo, TextBox):
+                combo.textChanged.connect(lambda c=combo, f=func: f(c.currentText()))
+                continue
             edit = QLineEdit()
             combo.setLineEdit(edit)
             completer = combo.completer()
@@ -312,13 +366,16 @@ class FrameCombo(QGroupBox):
             for tag in tags:
                 tagval = tag[1]
                 self.labels[tagval] = QLabel(tag[0])
-                self.combos[tagval] = QComboBox(self)
-                self.combos[tagval].setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-                self.combos[tagval].setEditable(True)
-                self.combos[tagval].completer().setCompletionMode(
-                    QCompleter.CompletionMode.UnfilteredPopupCompletion)
-                self.combos[tagval].completer().setCaseSensitivity(
-                    Qt.CaseSensitivity.CaseSensitive)
+                if tagval.lower() in MULTILINE_FIELDS:
+                    self.combos[tagval] = TextBox(self)
+                else:
+                    self.combos[tagval] = QComboBox(self)
+                    self.combos[tagval].setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+                    self.combos[tagval].setEditable(True)
+                    self.combos[tagval].completer().setCompletionMode(
+                        QCompleter.CompletionMode.UnfilteredPopupCompletion)
+                    self.combos[tagval].completer().setCaseSensitivity(
+                        Qt.CaseSensitivity.CaseSensitive)
                 self.labels[tagval].setBuddy(self.combos[tagval])
                 labelbox.addWidget(self.labels[tagval])
                 widgetbox.addWidget(self.combos[tagval])
