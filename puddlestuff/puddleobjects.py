@@ -599,7 +599,25 @@ def unique(seq, stable=False):
     return result
 
 
-def natural_sort_key(s: Union[str, List[str]], case_insensitive=True) -> QCollatorSortKey:
+class _CollatorKey:
+    """A sort key that orders strings with QCollator.compare.
+
+    QCollatorSortKey can order two keys of the same string as unequal, which breaks the stable
+    sort that keeps an earlier sort's order between equal values; compare returns 0 for them."""
+    __slots__ = ('s', 'collator')
+
+    def __init__(self, s, collator):
+        self.s = s
+        self.collator = collator
+
+    def __lt__(self, other):
+        return self.collator.compare(self.s, other.s) < 0
+
+    def __eq__(self, other):
+        return self.collator.compare(self.s, other.s) == 0
+
+
+def natural_sort_key(s: Union[str, List[str]], case_insensitive=True) -> _CollatorKey:
     """Return a sort-key for natural sorting the given string.
 
     Case-insensitive means uppercase- and lowercase-characters are treated equally.
@@ -614,7 +632,7 @@ def natural_sort_key(s: Union[str, List[str]], case_insensitive=True) -> QCollat
     collator = QCollator(locale)
     collator.setCaseSensitivity(Qt.CaseSensitivity.CaseSensitive)
     collator.setNumericMode(True)
-    return collator.sortKey(s)
+    return _CollatorKey(s, collator)
 
 
 def dupes(l, method=None):
