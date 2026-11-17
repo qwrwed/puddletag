@@ -1746,7 +1746,9 @@ class TagTable(QTableView):
             self.model().moveRows(mime.draggedRows, row)
             self.restoreSelection()
         else:
-            filenames = [z.path() for z
+            # toLocalFile gives a path the OS can open; path() keeps a leading
+            # slash before a Windows drive letter.
+            filenames = [z.toLocalFile() for z
                          in event.mimeData().urls()]
 
             dirs = []
