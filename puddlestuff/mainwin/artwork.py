@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-import tempfile
-
-from PyQt5.QtCore import QRect, Qt
+from PyQt5.QtCore import QBuffer, QIODevice, QRect, Qt
 from PyQt5.QtGui import QFont, QFontMetrics, QPainter, QBrush
 from PyQt5.QtSvg import QSvgGenerator
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
@@ -31,10 +29,12 @@ def get_font(rect, *text):
 def create_svg(text, font, rect=None):
     if not rect:
         rect = QRect(0, 0, 200, 200)
-    f = tempfile.NamedTemporaryFile()
+    # Rendered into memory: Windows refuses to reopen a NamedTemporaryFile while it is still open.
+    buf = QBuffer()
+    buf.open(QIODevice.OpenModeFlag.WriteOnly)
 
     generator = QSvgGenerator()
-    generator.setFileName(f.name)
+    generator.setOutputDevice(buf)
     generator.setSize(rect.size())
     generator.setViewBox(rect)
     generator.setTitle("puddletag image")
@@ -49,9 +49,8 @@ def create_svg(text, font, rect=None):
     painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, text)
     painter.end()
 
-    svg = open(f.name).read()
-    f.close()
-    return svg
+    buf.close()
+    return bytes(buf.data()).decode('utf-8')
 
 
 class ArtworkWidget(QWidget):
