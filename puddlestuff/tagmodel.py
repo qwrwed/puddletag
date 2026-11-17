@@ -2532,7 +2532,9 @@ class TagTable(QTableView):
 
     def wheelEvent(self, e):
         h = self.horizontalScrollBar()
-        if not self.verticalScrollBar().isVisible() and h.isVisible():
+        # A sideways swipe has a horizontal part; Qt scrolls it. Only a plain vertical wheel
+        # is turned into horizontal scrolling when there is nothing to scroll vertically.
+        if e.angleDelta().x() == 0 and not self.verticalScrollBar().isVisible() and h.isVisible():
             numsteps = e.angleDelta().y() // 5
             h.setValue(h.value() - numsteps)
             e.accept()
