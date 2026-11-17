@@ -11,7 +11,7 @@ from typing import Dict
 
 from PyQt5.QtCore import QAbstractTableModel, QEvent, QItemSelection, QItemSelectionModel, QItemSelectionRange, \
     QMetaObject, QMimeData, QModelIndex, QPoint, QUrl, Qt, pyqtSignal, pyqtSlot, Q_ARG
-from PyQt5.QtGui import QColor, QFont, QDrag, QPalette
+from PyQt5.QtGui import QColor, QDesktopServices, QFont, QDrag, QPalette
 from PyQt5.QtWidgets import QAbstractItemDelegate, QAbstractItemView, QAction, QApplication, QDialog, QGridLayout, QGroupBox, \
     QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMenu, QMessageBox, QPushButton, QStyledItemDelegate, QTableView, \
     QVBoxLayout
@@ -33,6 +33,25 @@ from .util import rename_error_msg
 from .audio_filter import parse as filter_audio
 
 the_break = False
+
+
+def _select_in_explorer(filepath):
+    """Opens an Explorer window at filepath's folder with filepath selected (Windows only)."""
+    import ctypes
+    shell32 = ctypes.windll.shell32
+    shell32.ILCreateFromPathW.restype = ctypes.c_void_p
+    shell32.ILCreateFromPathW.argtypes = [ctypes.c_wchar_p]
+    shell32.SHOpenFolderAndSelectItems.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p, ctypes.c_ulong]
+    shell32.ILFree.argtypes = [ctypes.c_void_p]
+    ctypes.windll.ole32.CoInitialize(None)
+    pidl = shell32.ILCreateFromPathW(filepath)
+    if not pidl:
+        return
+    try:
+        shell32.SHOpenFolderAndSelectItems(pidl, 0, None, 0)
+    finally:
+        shell32.ILFree(pidl)
+
 
 status = {}
 
@@ -1641,7 +1660,35 @@ class TagTable(QTableView):
 
     def contextMenuEvent(self, event):
         if self.contextMenu:
+            self._addRevealAction(self.contextMenu)
             self.contextMenu.exec_(event.globalPos())
+
+    def _addRevealAction(self, menu):
+        """Adds Show in Explorer (Show in Folder off Windows) to the end of the file list's menu, once."""
+        if getattr(menu, '_revealAction', None) is not None:
+            return
+        if sys.platform == 'win32':
+            text = translate('Menus', 'Show in E&xplorer')
+        else:
+            text = translate('Menus', 'Show in &Folder')
+        action = QAction(text, menu)
+        action.triggered.connect(self.revealSelected)
+        menu.addSeparator()
+        menu.addAction(action)
+        menu._revealAction = action
+
+    def revealSelected(self):
+        """Opens the file manager at each selected file's folder; on Windows the file is selected in it.
+
+        One window opens per folder, selecting the first selected file in that folder."""
+        firsts = {}
+        for audio in self.selectedTags:
+            firsts.setdefault(path.dirname(audio.filepath), audio.filepath)
+        for dirpath, filepath in firsts.items():
+            if sys.platform == 'win32':
+                _select_in_explorer(path.normpath(filepath))
+            else:
+                QDesktopServices.openUrl(QUrl.fromLocalFile(dirpath))
 
     @property
     def isempty(self):
