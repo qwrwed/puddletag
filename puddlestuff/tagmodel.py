@@ -1928,6 +1928,14 @@ class TagTable(QTableView):
             ret = QTableView.keyPressEvent(self, event)
             self.setEditTriggers(trigger)
             return ret
+        # Qt scrolls the current cell into view, which jumps the view sideways to
+        # the current column when moving between rows; keep the sideways position.
+        elif event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown):
+            bar = self.horizontalScrollBar()
+            value = bar.value()
+            ret = QTableView.keyPressEvent(self, event)
+            bar.setValue(value)
+            return ret
         return QTableView.keyPressEvent(self, event)
 
     def loadFiles(self, files=None, dirs=None, append=False, subfolders=None,
