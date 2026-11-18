@@ -1678,13 +1678,14 @@ class PicWidget(QWidget):
             v.addWidget(self.label)
             v.addWidget(self._image_size)
         else:
-            v.addStretch()
-            v.addWidget(self.label)
+            # The cover box fills the panel, as in Mp3tag's cover window.
+            self.label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+            v.addWidget(self.label, 1)
             v.addWidget(self._image_size)
-            v.addStretch()
 
         h = QHBoxLayout()
-        h.addStretch()
+        if buttons:
+            h.addStretch()
         h.addLayout(v)
         if not buttons:
             h.addLayout(movebuttons)
@@ -1692,14 +1693,15 @@ class PicWidget(QWidget):
             context_box.setAlignment(Qt.AlignmentFlag.AlignHCenter)
             context_box.addWidget(self._contextlabel)
             vbox.addLayout(context_box)
-        h.addStretch()
-        vbox.addLayout(h)
+        else:
+            h.addStretch()
+        vbox.addLayout(h, 1)
 
         vbox.setContentsMargins(0, 0, 0, 0)
         vbox.addLayout(controls)
         if buttons:
             vbox.addLayout(movebuttons)
-        vbox.addStretch()
+            vbox.addStretch()
         vbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.label.clicked.connect(self.maxImage)

@@ -1930,13 +1930,23 @@ class TagTable(QTableView):
             return ret
         # Qt scrolls the current cell into view, which jumps the view sideways to
         # the current column when moving between rows; keep the sideways position.
-        elif event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown):
+        elif event.key() in (Qt.Key.Key_Up, Qt.Key.Key_Down, Qt.Key.Key_PageUp, Qt.Key.Key_PageDown,
+                             Qt.Key.Key_Home, Qt.Key.Key_End):
             bar = self.horizontalScrollBar()
             value = bar.value()
             ret = QTableView.keyPressEvent(self, event)
             bar.setValue(value)
             return ret
         return QTableView.keyPressEvent(self, event)
+
+    def moveCursor(self, action, modifiers):
+        # Home and End go to the first and last file in the current column, as Up and Down move between files.
+        current = self.currentIndex()
+        if action in (QAbstractItemView.CursorAction.MoveHome, QAbstractItemView.CursorAction.MoveEnd) \
+                and current.isValid() and self.model().rowCount():
+            row = 0 if action == QAbstractItemView.CursorAction.MoveHome else self.model().rowCount() - 1
+            return self.model().index(row, current.column())
+        return QTableView.moveCursor(self, action, modifiers)
 
     def loadFiles(self, files=None, dirs=None, append=False, subfolders=None,
                   filepath=None, post_process=None):
