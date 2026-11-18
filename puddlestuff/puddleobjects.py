@@ -1576,6 +1576,7 @@ class PicWidget(QWidget):
         self._contextFormat = translate('Artwork Context', "{}/{}")
 
         QWidget.__init__(self, parent)
+        self._buttons = buttons
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.sizePolicy().setVerticalStretch(0)
         self.sizePolicy().setHorizontalStretch(3)
@@ -1631,11 +1632,10 @@ class PicWidget(QWidget):
             dbox.addWidget(self._image_type)
             controls.addLayout(dbox)
         else:
+            # The description and type are edited from the right-click menu, as in Mp3tag's cover window.
             self._image_type = CoverButton(self)
-            hbox = QHBoxLayout()
-            hbox.addWidget(self._image_desc, 1)
-            hbox.addWidget(self._image_type)
-            controls.addLayout(hbox)
+            self._image_desc.hide()
+            self._image_type.hide()
         self._image_type.setToolTip(
             translate("Artwork",
                       '<p>Select a cover type for the artwork.</p>'))
@@ -1746,6 +1746,10 @@ class PicWidget(QWidget):
 
             self.editpic = QAction(translate("Artwork", "&Change cover"), self)
             self.label.addAction(self.editpic)
+
+            self.infopic = QAction(translate("Artwork", "Cover &description and type..."), self)
+            self.label.addAction(self.infopic)
+            self.infopic.triggered.connect(self.editInfo)
             signal = 'triggered'
 
         getattr(self.addpic, signal).connect(self.addImage)
@@ -1930,6 +1934,8 @@ class PicWidget(QWidget):
 
         [action.setEnabled(True) for action in
          (self.editpic, self.savepic, self.removepic, self.copypic)]
+        if hasattr(self, 'infopic'):
+            self.infopic.setEnabled(True)
 
         if hasattr(self, '_itags'):
             self.setImageTags(self._itags)
@@ -1940,6 +1946,8 @@ class PicWidget(QWidget):
             self._image_desc.setEnabled(False)
             self._image_type.setEnabled(False)
             self.savepic.setEnabled(False)
+            if hasattr(self, 'infopic'):
+                self.infopic.setEnabled(False)
         if data != self._lastdata or self._lastdata is None:
             if isinstance(image, str):
                 self.label.setPixmap(image, data)
@@ -1968,7 +1976,10 @@ class PicWidget(QWidget):
             self._image_type.setCurrentIndex(3)
         self._image_type.blockSignals(False)
         self._currentImage = num
-        self.context = self._contextFormat.format(str(num + 1), str(len(self.images)))
+        if self._buttons or len(self.images) > 1:
+            self.context = self._contextFormat.format(str(num + 1), str(len(self.images)))
+        else:
+            self.context = ''
         self.label.setFrameStyle(QFrame.Shape.NoFrame)
         self.enableButtons()
         # self.resizeEvent()
@@ -2028,8 +2039,38 @@ class PicWidget(QWidget):
         self._image_type.setEnabled(False)
         [action.setEnabled(False) for action in
          (self.editpic, self.savepic, self.removepic)]
-        self.context = 'No Images'
+        if hasattr(self, 'infopic'):
+            self.infopic.setEnabled(False)
+        self.context = 'No Images' if self._buttons else ''
         self._lastdata = None
+
+    def editInfo(self):
+        """Opens a dialog to edit the current cover's description and type."""
+        if not self.images or self.currentImage < 0:
+            return
+        image = self.images[self.currentImage]
+        dialog = QDialog(self)
+        dialog.setWindowTitle(translate("Artwork", 'Cover description and type'))
+        desc = QLineEdit(image.get('description', ''), dialog)
+        desc.setToolTip(self._image_desc.toolTip())
+        imagetype = QComboBox(dialog)
+        imagetype.addItems(IMAGETYPES)
+        imagetype.setCurrentIndex(image.get('imagetype', DEFAULT_COVER))
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, parent=dialog)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel(translate("Artwork", '&Description'), dialog))
+        layout.addWidget(desc)
+        layout.addWidget(QLabel(translate("Artwork", '&Type'), dialog))
+        layout.addWidget(imagetype)
+        layout.addWidget(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.setDescription(desc.text())
+        self.setType(imagetype.currentIndex())
+        self.currentImage = self.currentImage
 
     def setImages(self, images, imagetags=None, default=0):
         """Sets images. images are dictionaries as described in the class docstring."""
