@@ -2210,8 +2210,10 @@ class TagTable(QTableView):
 
         self._restore = self.saveSelection()
         dirs = list(map(encode_fn, self.dirs))
+        # Files opened from the command line are listed in self.dirs too, so skip
+        # those here or they are loaded twice.
         files = [z.filepath for z in self.model().taginfo if z.dirpath
-                 not in dirs]
+                 not in dirs and z.filepath not in dirs]
         libfiles = [z for z in self.model().taginfo if '__library' in z]
         if self._playlist:
             self.loadFiles(files, dirs, False, self.subFolders)
