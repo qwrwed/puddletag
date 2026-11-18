@@ -1857,7 +1857,7 @@ class PicWidget(QWidget):
             self.addImages([pic])
 
     def copyImage(self):
-        if self.images and self.currentImage:
+        if self.images and self.currentImage >= 0 and self.currentImage not in self.readonly:
             image = QImage()
             image.loadFromData(self.images[self.currentImage]["data"])
             QApplication.clipboard().setImage(image)
